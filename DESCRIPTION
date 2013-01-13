@@ -1,0 +1,17 @@
+Package: wwiki
+Type: Package
+Title: Working Wiki interaction
+Version: 0.0.1
+LazyData: yes
+Date: 2013-01-09
+Author: Ben Bolker, Lee Worden
+Maintainer: Ben Bolker <bolker@mcmaster.ca>
+Description: Functions for interacting with working wiki
+Imports:
+    RCurl,
+    rjson,
+    tcltk
+License: GPL
+Collate:
+    'loginWiki.R'
+    'pushWiki.R'

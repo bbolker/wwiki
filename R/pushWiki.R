@@ -1,0 +1,182 @@
+## FIXME: put on github and/or mcmaster repo?
+## FIXME: should there be any sort of confirmation/warning when overwriting?
+## FIXME: return name/status of uploaded files invisibly?
+## FIXME: more granularity for verbosity?
+## FIXME: cache user, wiki name, etc. in options?
+## FIXME: more on display options
+## FIXME: additional autodepends targets (read.fwf, read.xls, ... ?) user-extendable list?
+
+##' Push a source file to a Working Wiki
+##' @param file Path to file for upload
+##' @param project ?
+##' @param page ?
+##' @param display [STUB] (character) display tag for file on WW: e.g. "source", "none", "link", ... ??
+##' @param filename Name of file to assign on WW
+##' @param readFile (logical) extract text to upload from a file?
+##' @param wiki WW name: either relative to \code{wikibase}, or a full URL
+##' @param wikibase base URL for WW
+##' @param autodepends (logical) automatically detect and upload dependencies?
+##' @param verbose verbose output?
+##' @param \dots additional arguments (esp. username) to pass to \code{\link{loginWiki}}
+##' @return name(s) of uploaded file(s)
+##' @details
+##' \itemize{
+##' \item In general a user name and password are required. If not specified, the user name will be retrieved via \code{\link{getOption}("MWUser")} [for "MediaWiki user"] if possible; see example below for setting the option.  Cookies will be saved (at present via \code{\link{options}} so that passwords need be entered only once per R session. (If saving unencrypted cookies in memory is a concern, please don't use this package.)
+##' \item Pushing the same file twice will overwrite the original version.
+##' \item If \code{autodepends} is \code{TRUE}, the function will try to detect dependencies (data files etc.) in the code and upload them automatically to the same page.  This will only work in simple cases (filename must not be specified explicitly; all files must be in the working directory; each load command must be specified on a separate line; etc.). The \code{autodepends} options currently detects \code{\link{read.table}}, \code{\link{read.csv}}, \code{\link{load}}, and \code{\link{source}}.
+##' \item If \code{display} is not explicitly set, the function will try to guess an appropriate default.  The current behavior is to display R Markdown (\code{rmd}) as HTML; LaTeX and Sweave (\code{tex}, \code{Rnw}) as PDF; data files (RData, rda, CSV, txt, dat, tab) as links; and everything else as source. Other Working Wiki options are ... ?
+##' }
+##' @keywords misc
+##' @examples
+##' \dontrun{
+##' pushWiki("pulse.rmd",user="Bb",page="pushTest")
+##' ## set persistent user name (works until you start a new R session;
+##' ## you could set it in your \code{\link{Rprofile}})
+##' options(MWUser="Bb")
+##' ## now username is unnecessary
+##' pushWiki("pulse.rmd",
+##'           page="pushTest")
+##' }
+##' @export
+##' @importFrom rjson fromJSON
+##' @importFrom RCurl postForm
+##' @importFrom tools file_ext file_path_sans_ext
+pushWiki <- function(file,
+                     ## FIXME: what is the distinction
+                     ##        between project and page?
+                     page,
+                     project=page,
+                     display=NULL,
+                     filename=basename(file),
+                     readFile=TRUE,
+                     ## FIXME: default should be bio_708_2013 once
+                     ##  it's set up; or nothing
+                     wiki="bio_708",
+                     wikibase="http://lalashan.mcmaster.ca/theobio/",
+                     autodepends=TRUE,
+                     verbose=FALSE,
+                     ...
+                     ) {
+
+    if (!readFile && missing(filename)) {
+        stop("must specify filename explicitly if readFile is FALSE")
+    }
+
+    ## now we're logged in, do the actual import
+    if (readFile) {
+        raw.contents <- readLines(file, warn=FALSE)
+    } else {
+        if (autodepends) stop("cannot use readFile=FALSE with autodepends")
+        raw.contents <- file
+        file <- "<contents>"
+    }
+    file.contents <- paste(raw.contents , collapse="\n")
+
+    if (autodepends) {
+        ## if "autodepends" is on, try to get
+        ## may fail on tricky cases like:
+        ##   * targets embedded in comments
+        ##   * filenames passed in variables
+        ##   * multiple commands on the same line of code
+        ##   * readFile=FALSE
+        ##   * filename specified explicitly
+        ##   * all files not in same directory
+        ##   * ?
+        mCall <- match.call()
+        targets <- c("read.csv","read.table","source","load")
+        ## could use stringr::str_extract but would rather not
+        ##  multiply dependencies if I can help it
+        ## target string:
+        ##    start-of-line + generic stuff +
+        ##       |-separated list of function targets +
+        ##       open-paren + open-quote + FILENAME TARGET +
+        ##       close-quote + non-paren stuff + close-paren +
+        ##       generic stuff + EOL
+        tStr <- paste0("^.*(",paste(targets,collapse="|"),")",
+                       "\\(['\"]([^'\"]+)['\"][^)]+\\).*$")
+        tLines <- grep(tStr,raw.contents,value=TRUE)
+        tVals <- gsub(tStr,"\\2",tLines)  ## extract FILENAME TARGET
+        tVals <- tVals[nzchar(tVals)] ## discard empties
+        if (length(tVals)>0) {
+            return(sapply(c(file,tVals),
+                          function(x) {
+                              if (verbose) cat("running autodepends:",x,"\n")
+                              tmpCall <- mCall
+                              tmpCall[["file"]] <- x
+                              tmpCall[["autodepends"]] <- FALSE
+                              eval(tmpCall)
+                          }))
+        }
+    }
+    
+    if (is.null(display)) {
+        if (!readFile) {
+            display <- "source"
+        } else {
+            fileExt <- file_ext(file)
+            fileBase <- file_path_sans_ext(filename)
+            display <- switch(tolower(fileExt),
+                              rmd=paste(fileBase,"html",sep="."),
+                              tex=, rnw=paste(fileBase,"pdf",sep="."),
+                              rdata=, rda=, csv=, txt=, dat=, tab="link",
+                              "source")
+        }
+    }
+
+    if (!grepl("http://",wiki)) {
+        wiki <- paste0(wikibase,wiki)
+    }
+    api.url <- paste(wiki,"api.php",sep="/")
+    api.opts <- list( verbose = verbose,
+                     ##   cookiefile = 'cookies.tmp',
+                     ##      cookiejar = 'cookies.tmp',
+                     useragent = 'import.R');
+ 
+    ## log in to the wiki 
+    ## FIXME: should cookie-checking be handled in loginWiki, or should there
+    ##  be a checkCookie() ?
+
+    if (is.null(cookie <- getWWCookie())) {
+        cookie <- loginWiki( api.url=api.url, api.opts=api.opts, setCookie=TRUE, ... )
+    } else {
+        if (verbose) cat("found existing cookie\n")
+    }
+
+    if (is.null(cookie)) {
+        ## this probably shouldn't happen, we should fail earlier
+        stop("couldn't log in to wiki")
+    } else { 
+        api.opts[['cookie']] <- cookie
+    }
+ 
+    pList <- list(action = 'ww-import-project-files',
+                  project = project,
+                  filename = filename,
+                  page = page,
+                  'as-source-file' = TRUE,
+                  'file-contents' = file.contents,
+                  'tag-attributes' = paste('display',display,sep="="),
+                  format = 'json' )
+    
+    import.result <- postForm( api.url,
+                              .params = pList,
+                              .opts = api.opts,
+                              style = 'post' )
+    
+ 
+    import.result <- fromJSON(import.result)
+ 
+    ## if MW fails to call the WW api function, it returns 'error'
+    if ( ! is.null(import.result[['error']]) ) {
+        stop("Error:", import.result[['error']][['info']])
+    }
+    ## the WW function might return 'success'==false instead.  I should
+    ## possibly find out if I can just use 'error'.
+    if ( ! import.result[['success']] ) {
+        stop("Import-project-file operation failed:\n", 
+             import.result[['messages']])
+    }
+    if (verbose) cat("Success.\n")
+    return(file)
+}
+
