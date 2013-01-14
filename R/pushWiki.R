@@ -1,6 +1,4 @@
-## FIXME: put on github and/or mcmaster repo?
 ## FIXME: should there be any sort of confirmation/warning when overwriting?
-## FIXME: return name/status of uploaded files invisibly?
 ## FIXME: more granularity for verbosity?
 ## FIXME: cache user, wiki name, etc. in options?
 ## FIXME: more on display options
@@ -131,10 +129,9 @@ pushWiki <- function(file,
                      useragent = 'R wwiki package');
  
     ## log in to the wiki 
-    ## FIXME: should cookie-checking be handled in loginWiki, or should there
-    ##  be a checkCookie() ?
+    ## FIXME: should cookie-checking be handled in loginWiki?
 
-    if (is.null(cookie <- getWWCookie())) {
+    if (is.null(cookie <- getMWCookie())) {
         cookie <- loginWiki( api.url=api.url, api.opts=api.opts, setCookie=TRUE, ... )
     } else {
         if (verbose) cat("found existing cookie\n")
