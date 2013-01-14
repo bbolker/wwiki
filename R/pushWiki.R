@@ -128,9 +128,7 @@ pushWiki <- function(file,
     }
     api.url <- paste(wiki,"api.php",sep="/")
     api.opts <- list( verbose = verbose,
-                     ##   cookiefile = 'cookies.tmp',
-                     ##      cookiejar = 'cookies.tmp',
-                     useragent = 'import.R');
+                     useragent = 'R wwiki package');
  
     ## log in to the wiki 
     ## FIXME: should cookie-checking be handled in loginWiki, or should there
