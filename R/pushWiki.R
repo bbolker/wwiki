@@ -170,12 +170,6 @@ pushWiki <- function(file,
     if ( ! is.null(import.result[['error']]) ) {
         stop("Error:", import.result[['error']][['info']])
     }
-    ## the WW function might return 'success'==false instead.  I should
-    ## possibly find out if I can just use 'error'.
-    if ( ! import.result[['success']] ) {
-        stop("Import-project-file operation failed:\n", 
-             import.result[['messages']])
-    }
     if (verbose) cat("Success.\n")
     return(file)
 }
