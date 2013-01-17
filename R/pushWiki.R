@@ -175,7 +175,7 @@ pushWiki <- function(file,
                   project = project,
                   filename = filename,
                   page = page,
-                  'as-source-file' = TRUE,
+                  'as-source-file' = 1,
                   'file-contents' = file.contents,
                   'tag-attributes' = paste('display',display,sep="="),
                   format = 'json' )
