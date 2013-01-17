@@ -1,19 +1,21 @@
 ## FIXME: should there be any sort of confirmation/warning when overwriting?
-## FIXME: more granularity for verbosity?
+## FIXME: more granularity for verbosity? (e.g. TRUE -> 1 provides base level, numeric values >1 give access to loginWiki verbosity?)
 ## FIXME: cache user, wiki name, etc. in options?
 ## FIXME: more on display options
 ## FIXME: additional autodepends targets (read.fwf, read.xls, ... ?) user-extendable list?
+## FIXME: should there be more flexibility in whether to push a Makefile or not?
 
 ##' Push a source file to a Working Wiki
-##' @param file Path to file for upload
-##' @param project ?
-##' @param page ?
-##' @param display [STUB] (character) display tag for file on WW: e.g. "source", "none", "link", ... ??
+##' @param file path to file for upload
+##' @param page wiki page to which to push the file(s)
+##' @param project wiki project to use (default is the same as the page)
+##' @param display (character) display tag for the file on WW: e.g. "myfile.html" if you want an HTML version of your file to be displayed.  Other typical choisces are "source", "none", "link". [FIXME: WW reference on display options?]
 ##' @param filename Name of file to assign on WW
 ##' @param readFile (logical) extract text to upload from a file?
 ##' @param wiki WW name: either relative to \code{wikibase}, or a full URL
 ##' @param wikibase base URL for WW
 ##' @param autodepends (logical) automatically detect and upload dependencies?
+##' @param autoopen (logical) automatically open modified page in a web browser?
 ##' @param verbose verbose output?
 ##' @param \dots additional arguments (esp. username) to pass to \code{\link{loginWiki}}
 ##' @return name(s) of uploaded file(s)
@@ -52,6 +54,7 @@ pushWiki <- function(file,
                      wiki="bio_708",
                      wikibase="http://lalashan.mcmaster.ca/theobio/",
                      autodepends=TRUE,
+                     autoopen=autodepends,
                      verbose=FALSE,
                      ...
                      ) {
@@ -69,6 +72,32 @@ pushWiki <- function(file,
         file <- "<contents>"
     }
     file.contents <- paste(raw.contents , collapse="\n")
+
+    ## construct result URL before autodepends
+    if (!grepl("http://",wiki)) {
+        wiki <- paste0(wikibase,wiki)
+    }
+    pushedURL <- paste(wiki,"index.php",page,sep="/")
+
+    ## process display defaults before autodepends;
+    ## we will want the result for the makefile
+    if (is.null(display)) {
+        if (!readFile) {
+            display <- "source"
+        } else {
+            fileExt <- tolower(file_ext(file))
+            fileBase <- file_path_sans_ext(filename)
+            displayExt <- switch(fileExt,rmd="html",
+                                 tex=, rnw="pdf",
+                                 NULL)
+            linkExts <- c("rdata","rda","csv","txt","dat","tab","mk")
+            display <- if (!is.null(displayExt)) {
+                paste(fileBase,displayExt,sep=".")
+            } else if (fileExt %in% linkExts) {
+                "link"
+            } else  "source"
+        }
+    }
 
     if (autodepends) {
         ## if "autodepends" is on, try to get
@@ -96,34 +125,32 @@ pushWiki <- function(file,
         tVals <- gsub(tStr,"\\2",tLines)  ## extract FILENAME TARGET
         tVals <- tVals[nzchar(tVals)] ## discard empties
         if (length(tVals)>0) {
-            return(sapply(c(file,tVals),
+            ## construct Makefile
+            if (!display %in% c("source","link","none")) {
+                makeRule <- switch(fileExt,
+                                   tex=stop("no tex make rule yet"),
+                                   rmd="$(knit_html)",
+                                   rnw="$(knit_pdf)")
+                mktext <- c(paste(paste0(display,":"),
+                                  tVals,collapse=" "),
+                            paste0("	",makeRule))
+                makeFn <- paste(display,"mk",sep=".")
+                writeLines(mktext,con=makeFn)
+                tVals <- c(tVals,makeFn)
+            }
+            s <- sapply(c(file,tVals),
                           function(x) {
                               if (verbose) cat("running autodepends:",x,"\n")
                               tmpCall <- mCall
                               tmpCall[["file"]] <- x
                               tmpCall[["autodepends"]] <- FALSE
                               eval(tmpCall)
-                          }))
+                          })
+            if (autoopen) browseURL(pushedURL)
+            return(s)
         }
     }
     
-    if (is.null(display)) {
-        if (!readFile) {
-            display <- "source"
-        } else {
-            fileExt <- file_ext(file)
-            fileBase <- file_path_sans_ext(filename)
-            display <- switch(tolower(fileExt),
-                              rmd=paste(fileBase,"html",sep="."),
-                              tex=, rnw=paste(fileBase,"pdf",sep="."),
-                              rdata=, rda=, csv=, txt=, dat=, tab="link",
-                              "source")
-        }
-    }
-
-    if (!grepl("http://",wiki)) {
-        wiki <- paste0(wikibase,wiki)
-    }
     api.url <- paste(wiki,"api.php",sep="/")
     api.opts <- list( verbose = verbose,
                      useragent = 'R wwiki package');
@@ -152,7 +179,7 @@ pushWiki <- function(file,
                   'file-contents' = file.contents,
                   'tag-attributes' = paste('display',display,sep="="),
                   format = 'json' )
-    
+
     import.result <- postForm( api.url,
                               .params = pList,
                               .opts = api.opts,
@@ -166,6 +193,7 @@ pushWiki <- function(file,
         stop("Error:", import.result[['error']][['info']])
     }
     if (verbose) cat("Success.\n")
+    if (autoopen) browseURL(pushedURL)
     return(file)
 }
 

@@ -6,17 +6,22 @@
     filename = basename(file), readFile = TRUE,
     wiki = "bio_708",
     wikibase = "http://lalashan.mcmaster.ca/theobio/",
-    autodepends = TRUE, verbose = FALSE, ...)
+    autodepends = TRUE, autoopen = autodepends,
+    verbose = FALSE, ...)
 }
 \arguments{
-  \item{file}{Path to file for upload}
+  \item{file}{path to file for upload}
 
-  \item{project}{?}
+  \item{page}{wiki page to which to push the file(s)}
 
-  \item{page}{?}
+  \item{project}{wiki project to use (default is the same
+  as the page)}
 
-  \item{display}{[STUB] (character) display tag for file on
-  WW: e.g. "source", "none", "link", ... ??}
+  \item{display}{(character) display tag for the file on
+  WW: e.g. "myfile.html" if you want an HTML version of
+  your file to be displayed.  Other typical choisces are
+  "source", "none", "link". [FIXME: WW reference on display
+  options?]}
 
   \item{filename}{Name of file to assign on WW}
 
@@ -30,6 +35,9 @@
 
   \item{autodepends}{(logical) automatically detect and
   upload dependencies?}
+
+  \item{autoopen}{(logical) automatically open modified
+  page in a web browser?}
 
   \item{verbose}{verbose output?}
 
