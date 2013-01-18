@@ -4,7 +4,7 @@
 \usage{
   pushWiki(file, page, project = page, display = NULL,
     filename = basename(file), readFile = TRUE,
-    wiki = "bio_708",
+    wiki = "bio_708_2013",
     wikibase = "http://lalashan.mcmaster.ca/theobio/",
     autodepends = TRUE, autoopen = autodepends,
     verbose = FALSE, ...)

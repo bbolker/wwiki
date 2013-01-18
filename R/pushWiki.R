@@ -4,6 +4,7 @@
 ## FIXME: more on display options
 ## FIXME: additional autodepends targets (read.fwf, read.xls, ... ?) user-extendable list?
 ## FIXME: should there be more flexibility in whether to push a Makefile or not?
+## FIXME: fix makefile rules
 
 ##' Push a source file to a Working Wiki
 ##' @param file path to file for upload
@@ -49,9 +50,8 @@ pushWiki <- function(file,
                      display=NULL,
                      filename=basename(file),
                      readFile=TRUE,
-                     ## FIXME: default should be bio_708_2013 once
-                     ##  it's set up; or nothing
-                     wiki="bio_708",
+                     ## FIXME: change wiki/wikibase defaults to blank for more general use?
+                     wiki="bio_708_2013",
                      wikibase="http://lalashan.mcmaster.ca/theobio/",
                      autodepends=TRUE,
                      autoopen=autodepends,
@@ -59,6 +59,8 @@ pushWiki <- function(file,
                      ...
                      ) {
 
+    if (missing(wiki) && !is.null(ww <- getOption("wiki"))) wiki <- ww
+    if (missing(wikibase) && !is.null(ww <- getOption("wikibase"))) wikibase <- ww   
     if (!readFile && missing(filename)) {
         stop("must specify filename explicitly if readFile is FALSE")
     }
@@ -124,21 +126,25 @@ pushWiki <- function(file,
         tLines <- grep(tStr,raw.contents,value=TRUE)
         tVals <- gsub(tStr,"\\2",tLines)  ## extract FILENAME TARGET
         tVals <- tVals[nzchar(tVals)] ## discard empties
-        if (length(tVals)>0) {
+        tVals <- c(file,tVals)
+        if (length(tVals)>1) {
             ## construct Makefile
             if (!display %in% c("source","link","none")) {
                 makeRule <- switch(fileExt,
                                    tex=stop("no tex make rule yet"),
                                    rmd="$(knit_html)",
                                    rnw="$(knit_pdf)")
-                mktext <- c(paste(paste0(display,":"),
-                                  tVals,collapse=" "),
-                            paste0("	",makeRule))
+                ## dependency line
+                mktext <- paste(paste0(display,":"),
+                                paste(tVals,collapse=" "))
+                ## rule line
+                ## FIXME: re-enable this once debugged
+                ## mktext <- c(mktext,paste0("	",makeRule))
                 makeFn <- paste(display,"mk",sep=".")
                 writeLines(mktext,con=makeFn)
                 tVals <- c(tVals,makeFn)
             }
-            s <- sapply(c(file,tVals),
+            s <- sapply(tVals,
                           function(x) {
                               if (verbose) cat("running autodepends:",x,"\n")
                               tmpCall <- mCall
