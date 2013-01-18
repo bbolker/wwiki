@@ -122,7 +122,7 @@ pushWiki <- function(file,
         ##       close-quote + non-paren stuff + close-paren +
         ##       generic stuff + EOL
         tStr <- paste0("^.*(",paste(targets,collapse="|"),")",
-                       "\\(['\"]([^'\"]+)['\"][^)]+\\).*$")
+                       "\\(['\"]([^'\"]+)['\"][^)]*\\).*$")
         tLines <- grep(tStr,raw.contents,value=TRUE)
         tVals <- gsub(tStr,"\\2",tLines)  ## extract FILENAME TARGET
         tVals <- tVals[nzchar(tVals)] ## discard empties
