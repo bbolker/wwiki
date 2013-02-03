@@ -55,7 +55,7 @@ pushWiki <- function(file,
                      wikibase="http://lalashan.mcmaster.ca/theobio/",
                      autodepends=TRUE,
                      autoopen=autodepends,
-                     autoRsave=autodepends,
+                     autoRsave=TRUE,
                      verbose=FALSE,
                      ...
                      ) {
@@ -118,9 +118,12 @@ pushWiki <- function(file,
     }
     ## convert to newline-separated string
     file.contents <- paste(raw.contents , collapse="\n")
-    if (autoRsave && drules[fileExt,"rsave"])
-        file.contents <- paste(file.contents,paste0("save.image(",fileBase,".RData)"),
-                               sep="\n")
+    if (autoRsave && drules[fileExt,"rsave"]) {
+        saveString <- paste0("save.image(file=\"",fileBase,".RData\")")
+        if (fileExt=="rmd") saveString <- paste(c("```{r __autosave,echo=FALSE}",saveString,"```"),collapse="\n")
+        if (fileExt=="rnw") saveString <- paste(c("<<__autosave,echo=FALSE>>",saveString,"@"),collapse="\n")
+        file.contents <- paste(file.contents,saveString,sep="\n")
+    }
     ## add final blank line
     file.contents <- paste0(file.contents,"\n")
 
