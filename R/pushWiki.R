@@ -55,6 +55,7 @@ pushWiki <- function(file,
                      wikibase="http://lalashan.mcmaster.ca/theobio/",
                      autodepends=TRUE,
                      autoopen=autodepends,
+                     autoRsave=autodepends,
                      verbose=FALSE,
                      ...
                      ) {
@@ -66,14 +67,6 @@ pushWiki <- function(file,
     }
 
     ## now we're logged in, do the actual import
-    if (readFile) {
-        raw.contents <- readLines(file, warn=FALSE)
-    } else {
-        if (autodepends) stop("cannot use readFile=FALSE with autodepends")
-        raw.contents <- file
-        file <- "<contents>"
-    }
-    file.contents <- paste(raw.contents , collapse="\n")
 
     ## construct result URL before autodepends
     if (!grepl("http://",wiki)) {
@@ -81,6 +74,21 @@ pushWiki <- function(file,
     }
     pushedURL <- paste(wiki,"index.php",page,sep="/")
 
+    ## display rules. rownames=file extension;
+    ##                page_prefix: prefix for page -- stick in file space?
+    ##                display=display attribute of source tag
+    ##                ext=does the display type represent a file extension,
+    ##                    i.e. display="foo.<display>" rather than display="<display>"
+    ## 
+    drules <- data.frame(img_prefix=rep(c(FALSE,TRUE),c(7,6)),
+                         display=c("html","pdf","source","html",
+                             "pdf","source","link",
+                              rep("link",6)),
+                         rsave=rep(c(TRUE,FALSE),c(3,10)),
+                         row.names=c("rmd","rnw","r","md","tex","html","mk",
+                         "rdata","rda","csv","txt","dat","tab"),
+                         stringsAsFactors=FALSE)
+    drules <- transform(drules,ext=display %in% c("html","pdf"))
     ## process display defaults before autodepends;
     ## we will want the result for the makefile
     if (is.null(display)) {
@@ -89,17 +97,32 @@ pushWiki <- function(file,
         } else {
             fileExt <- tolower(file_ext(file))
             fileBase <- file_path_sans_ext(filename)
-            displayExt <- switch(fileExt,rmd="html",
-                                 tex=, rnw="pdf",
-                                 NULL)
-            linkExts <- c("rdata","rda","csv","txt","dat","tab","mk")
-            display <- if (!is.null(displayExt)) {
-                paste(fileBase,displayExt,sep=".")
-            } else if (fileExt %in% linkExts) {
-                "link"
-            } else  "source"
+            displayType <- drules[fileExt,"display"]
+            pushTag <- drules[fileExt,"tag"]
+            displayExt <- drules[fileExt,"ext"]
+            display <- if (displayExt) {
+                paste(fileBase,displayType,sep=".")
+            } else if (!is.na(displayType)) {
+                displayType
+            }
         }
     }
+
+    ## get file contents
+    if (readFile) {
+        raw.contents <- readLines(file, warn=FALSE)
+    } else {
+        if (autodepends) stop("cannot use readFile=FALSE with autodepends")
+        raw.contents <- file
+        file <- "<contents>"
+    }
+    ## convert to newline-separated string
+    file.contents <- paste(raw.contents , collapse="\n")
+    if (autoRsave && drules[fileExt,"rsave"])
+        file.contents <- paste(file.contents,paste0("save.image(",fileBase,".RData)"),
+                               sep="\n")
+    ## add final blank line
+    file.contents <- paste0(file.contents,"\n")
 
     if (autodepends) {
         ## if "autodepends" is on, try to get
@@ -112,7 +135,7 @@ pushWiki <- function(file,
         ##   * all files not in same directory
         ##   * ?
         mCall <- match.call()
-        targets <- c("read.csv","read.table","source","load")
+        read_targets <- c("read.csv","read.table","source","load")
         ## could use stringr::str_extract but would rather not
         ##  multiply dependencies if I can help it
         ## target string:
@@ -121,7 +144,7 @@ pushWiki <- function(file,
         ##       open-paren + open-quote + FILENAME TARGET +
         ##       close-quote + non-paren stuff + close-paren +
         ##       generic stuff + EOL
-        tStr <- paste0("^.*(",paste(targets,collapse="|"),")",
+        tStr <- paste0("^.*(",paste(read_targets,collapse="|"),")",
                        "\\(['\"]([^'\"]+)['\"][^)]*\\).*$")
         tLines <- grep(tStr,raw.contents,value=TRUE)
         tVals <- gsub(tStr,"\\2",tLines)  ## extract FILENAME TARGET
@@ -129,38 +152,40 @@ pushWiki <- function(file,
         tVals <- c(file,tVals)
         if (length(tVals)>1) {
             ## construct Makefile
-            if (!display %in% c("source","link","none")) {
-                makeRule <- switch(fileExt,
-                                   tex=stop("no tex make rule yet"),
-                                   rmd="$(knit_html)",
-                                   rnw="$(knit_pdf)")
-                ## dependency line
-                mktext <- paste(paste0(display,":"),
-                                paste(tVals,collapse=" "))
-                ## rule line
-                ## FIXME: re-enable this once debugged
-                ## mktext <- c(mktext,paste0("	",makeRule))
-                makeFn <- paste(display,"mk",sep=".")
-                writeLines(mktext,con=makeFn)
-                tVals <- c(tVals,makeFn)
-            }
-            s <- sapply(tVals,
-                          function(x) {
-                              if (verbose) cat("running autodepends:",x,"\n")
-                              tmpCall <- mCall
-                              tmpCall[["file"]] <- x
-                              tmpCall[["autodepends"]] <- FALSE
-                              eval(tmpCall)
-                          })
-            if (autoopen) browseURL(pushedURL)
-            return(s)
+            ## dependency line
+            mktext <- paste(paste0(display,":"),
+                            paste(tVals,collapse=" "))
+            ## rule line
+            ## FIXME: re-enable this once debugged
+            ## makeRule <- switch(displayExt,
+            ##                  tex=stop("no tex make rule yet"),
+            ##                   rmd="$(knit_html)",
+            ##                   rnw="$(knit_pdf)")
+            ## mktext <- c(mktext,paste0("	",makeRule))
+            makeFn <- paste(display,"mk",sep=".")
+            writeLines(mktext,con=makeFn)
+            tVals <- c(tVals,makeFn)
         }
+        s <- sapply(tVals,
+                    function(x) {
+                        if (verbose) cat("running autodepends:",x,"\n")
+                        tmpCall <- mCall
+                        tmpCall[["file"]] <- x
+                        tmpCall[["autodepends"]] <- FALSE
+                        eval(tmpCall)
+                    })
+        if (autoopen) browseURL(pushedURL)
+        return(unname(s))
+    } ## if autodepends
+
+    if (drules[fileExt,"img_prefix"]) {
+        page <- paste0("Image:",project,"$",file)
     }
     
     api.url <- paste(wiki,"api.php",sep="/")
     api.opts <- list( verbose = verbose,
                      useragent = 'R wwiki package');
- 
+
     ## log in to the wiki 
     ## FIXME: should cookie-checking be handled in loginWiki?
 
@@ -176,7 +201,7 @@ pushWiki <- function(file,
     } else { 
         api.opts[['cookie']] <- cookie
     }
- 
+
     pList <- list(action = 'ww-import-project-files',
                   project = project,
                   filename = filename,
@@ -190,16 +215,16 @@ pushWiki <- function(file,
                               .params = pList,
                               .opts = api.opts,
                               style = 'post' )
-    
- 
+
+
     import.result <- fromJSON(import.result)
- 
+
     ## if MW fails to call the WW api function, it returns 'error'
     if ( ! is.null(import.result[['error']]) ) {
         stop("Error:", import.result[['error']][['info']])
     }
     if (verbose) cat("Success.\n")
     if (autoopen) browseURL(pushedURL)
-    return(file)
+    return(unname(file))
 }
 
