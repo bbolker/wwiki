@@ -183,6 +183,7 @@ pushWiki <- function(file,
 
     if (drules[fileExt,"img_prefix"]) {
         page <- paste0("Image:",project,"$",file)
+        if (verbose) cat("posting page to ",page,"\n")
     }
     
     api.url <- paste(wiki,"api.php",sep="/")
