@@ -17,6 +17,7 @@
 ##' @param wikibase base URL for WW
 ##' @param autodepends (logical) automatically detect and upload dependencies?
 ##' @param autoopen (logical) automatically open modified page in a web browser?
+##' @param autoRsave (logical) add a \code{save.image()} command to the end of R markdown, Sweave, and R files?
 ##' @param verbose verbose output?
 ##' @param \dots additional arguments (esp. username) to pass to \code{\link{loginWiki}}
 ##' @return name(s) of uploaded file(s)

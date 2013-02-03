@@ -7,7 +7,7 @@
     wiki = "bio_708_2013",
     wikibase = "http://lalashan.mcmaster.ca/theobio/",
     autodepends = TRUE, autoopen = autodepends,
-    verbose = FALSE, ...)
+    autoRsave = TRUE, verbose = FALSE, ...)
 }
 \arguments{
   \item{file}{path to file for upload}
@@ -38,6 +38,9 @@
 
   \item{autoopen}{(logical) automatically open modified
   page in a web browser?}
+
+  \item{autoRsave}{(logical) add a \code{save.image()}
+  command to the end of R markdown, Sweave, and R files?}
 
   \item{verbose}{verbose output?}
 
