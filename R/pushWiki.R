@@ -8,7 +8,7 @@
 
 ##' Push a source file to a Working Wiki
 ##' @param file path to file for upload
-##' @param page wiki page to which to push the file(s)
+##' @param page wiki page to which to push the file(s).
 ##' @param project wiki project to use (default is the same as the page)
 ##' @param display (character) display tag for the file on WW: e.g. "myfile.html" if you want an HTML version of your file to be displayed.  Other typical choisces are "source", "none", "link". [FIXME: WW reference on display options?]
 ##' @param filename Name of file to assign on WW
@@ -18,15 +18,16 @@
 ##' @param autodepends (logical) automatically detect and upload dependencies?
 ##' @param autoopen (logical) automatically open modified page in a web browser?
 ##' @param autoRsave (logical) add a \code{save.image()} command to the end of R markdown, Sweave, and R files?
+##' @param imagefile (logical) post file to the project file space by prepending "Image:project$" to the page name?  (Default is to post data files -- \code{RData}, \code{rda}, \code{csv}, \code{txt}, \code{dat}, \code{tab} to the project file space.)
 ##' @param verbose verbose output?
 ##' @param \dots additional arguments (esp. username) to pass to \code{\link{loginWiki}}
-##' @return name(s) of uploaded file(s)
+##' @return vector of name(s) of uploaded file(s)
 ##' @details
 ##' \itemize{
 ##' \item In general a user name and password are required. If not specified, the user name will be retrieved via \code{\link{getOption}("MWUser")} [for "MediaWiki user"] if possible; see example below for setting the option.  Cookies will be saved (at present via \code{\link{options}} so that passwords need be entered only once per R session. (If saving unencrypted cookies in memory is a concern, please don't use this package.)
 ##' \item Pushing the same file twice will overwrite the original version.
 ##' \item If \code{autodepends} is \code{TRUE}, the function will try to detect dependencies (data files etc.) in the code and upload them automatically to the same page.  This will only work in simple cases (filename must not be specified explicitly; all files must be in the working directory; each load command must be specified on a separate line; etc.). The \code{autodepends} options currently detects \code{\link{read.table}}, \code{\link{read.csv}}, \code{\link{load}}, and \code{\link{source}}.
-##' \item If \code{display} is not explicitly set, the function will try to guess an appropriate default.  The current behavior is to display R Markdown (\code{rmd}) as HTML; LaTeX and Sweave (\code{tex}, \code{Rnw}) as PDF; data files (RData, rda, CSV, txt, dat, tab) as links; and everything else as source. Other Working Wiki options are ... ?
+##' \item If \code{display} is not explicitly set, the function will try to guess an appropriate default.  The current behavior is to display R Markdown and markdown (\code{rmd}, \code{md}) as HTML, LaTeX and Sweave (\code{tex}, \code{Rnw}) as PDF; R and HTML files as source; and everything else as links.
 ##' }
 ##' @keywords misc
 ##' @examples
@@ -57,17 +58,33 @@ pushWiki <- function(file,
                      autodepends=TRUE,
                      autoopen=autodepends,
                      autoRsave=TRUE,
+                     imagefile=NULL,
                      verbose=FALSE,
                      ...
                      ) {
+
+    mCall <- match.call() ## for autodepends
+
+    capfun <- function(x,name) {
+        if (missing(name)) name <- deparse(substitute(x)) ## hack
+        s <- substr(x,1,1)
+        if (s==tolower(s)) {
+            warning(paste("capitalizing",name,"name"))
+            x <- paste0(toupper(s),substr(x,2,nchar(x)))
+        }
+        x
+    }
+    
+    page <- capfun(page)
+    project <- capfun(project)
+    mCall$page <- page ## prevent warnings from recursive calls
+    mCall$project <- project ## ditto
 
     if (missing(wiki) && !is.null(ww <- getOption("wiki"))) wiki <- ww
     if (missing(wikibase) && !is.null(ww <- getOption("wikibase"))) wikibase <- ww   
     if (!readFile && missing(filename)) {
         stop("must specify filename explicitly if readFile is FALSE")
     }
-
-    ## now we're logged in, do the actual import
 
     ## construct result URL before autodepends
     if (!grepl("http://",wiki)) {
@@ -81,7 +98,7 @@ pushWiki <- function(file,
     ##                ext=does the display type represent a file extension,
     ##                    i.e. display="foo.<display>" rather than display="<display>"
     ## 
-    drules <- data.frame(img_prefix=rep(c(FALSE,TRUE),c(7,6)),
+    drules <- data.frame(imagefile=rep(c(FALSE,TRUE),c(7,6)),
                          display=c("html","pdf","source","html",
                              "pdf","source","link",
                               rep("link",6)),
@@ -138,7 +155,6 @@ pushWiki <- function(file,
         ##   * filename specified explicitly
         ##   * all files not in same directory
         ##   * ?
-        mCall <- match.call()
         read_targets <- c("read.csv","read.table","source","load")
         ## could use stringr::str_extract but would rather not
         ##  multiply dependencies if I can help it
@@ -182,7 +198,9 @@ pushWiki <- function(file,
         return(unname(s))
     } ## if autodepends
 
-    if (drules[fileExt,"img_prefix"]) {
+    if ((is.null(imagefile) && drules[fileExt,"imagefile"])
+        || isTRUE(imagefile))
+    {
         page <- paste0("Image:",project,"$",file)
         if (verbose) cat("posting page to ",page,"\n")
     }
@@ -206,6 +224,8 @@ pushWiki <- function(file,
     } else { 
         api.opts[['cookie']] <- cookie
     }
+
+    ## now we're logged in, do the actual import
 
     pList <- list(action = 'ww-import-project-files',
                   project = project,

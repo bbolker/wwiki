@@ -7,12 +7,13 @@
     wiki = "bio_708_2013",
     wikibase = "http://lalashan.mcmaster.ca/theobio/",
     autodepends = TRUE, autoopen = autodepends,
-    autoRsave = TRUE, verbose = FALSE, ...)
+    autoRsave = TRUE, imagefile = NULL, verbose = FALSE,
+    ...)
 }
 \arguments{
   \item{file}{path to file for upload}
 
-  \item{page}{wiki page to which to push the file(s)}
+  \item{page}{wiki page to which to push the file(s).}
 
   \item{project}{wiki project to use (default is the same
   as the page)}
@@ -42,13 +43,19 @@
   \item{autoRsave}{(logical) add a \code{save.image()}
   command to the end of R markdown, Sweave, and R files?}
 
+  \item{imagefile}{(logical) post file to the project file
+  space by prepending "Image:project$" to the page name?
+  (Default is to post data files -- \code{RData},
+  \code{rda}, \code{csv}, \code{txt}, \code{dat},
+  \code{tab} to the project file space.)}
+
   \item{verbose}{verbose output?}
 
   \item{\dots}{additional arguments (esp. username) to pass
   to \code{\link{loginWiki}}}
 }
 \value{
-  name(s) of uploaded file(s)
+  vector of name(s) of uploaded file(s)
 }
 \description{
   Push a source file to a Working Wiki
@@ -75,11 +82,10 @@
   \code{\link{load}}, and \code{\link{source}}. \item If
   \code{display} is not explicitly set, the function will
   try to guess an appropriate default.  The current
-  behavior is to display R Markdown (\code{rmd}) as HTML;
-  LaTeX and Sweave (\code{tex}, \code{Rnw}) as PDF; data
-  files (RData, rda, CSV, txt, dat, tab) as links; and
-  everything else as source. Other Working Wiki options are
-  ... ? }
+  behavior is to display R Markdown and markdown
+  (\code{rmd}, \code{md}) as HTML, LaTeX and Sweave
+  (\code{tex}, \code{Rnw}) as PDF; R and HTML files as
+  source; and everything else as links. }
 }
 \examples{
 \dontrun{
