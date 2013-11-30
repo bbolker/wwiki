@@ -77,15 +77,13 @@ loginWiki <- function(username=NULL, password=NULL, api.url, api.opts, setCookie
         login.data <- fromJSON(login.result)
         if (login.data[['login']][['result']] != 'Success') {
             with(login.data[['login']],
-                 stop(paste("Error logging in to wiki:",
-                            result,details)))
+                 stop(paste("Error logging in to wiki:", result)))
         }
     }
     ## FIXME: repeated code, should be encapsulated
     if (login.data[['login']][['result']] != 'Success')  {
         with(login.data[['login']],
-             stop(paste("Error logging in to wiki:",
-                        result,details)))
+             stop(paste("Error logging in to wiki:", result)))
     }
     ## we're supposed to use these cookies as well once we're logged in
     if (cookie != '') { cookie <- paste0(cookie, ';') }
