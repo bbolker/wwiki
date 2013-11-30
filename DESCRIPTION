@@ -1,9 +1,8 @@
 Package: wwiki
 Type: Package
 Title: Working Wiki interaction
-Version: 0.0.2
+Version: 0.0.3
 LazyData: yes
-Date: 2013-02-03
 Author: Ben Bolker, Lee Worden
 Maintainer: Ben Bolker <bolker@mcmaster.ca>
 Description: Functions for interacting with working wiki

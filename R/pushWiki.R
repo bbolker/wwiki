@@ -6,6 +6,9 @@
 ## FIXME: should there be more flexibility in whether to push a Makefile or not?
 ## FIXME: fix makefile rules
 
+if(getRversion() < "2.15")
+    paste0 <- function(...) paste(..., sep = '')
+
 ##' Push a source file to a Working Wiki
 ##' @param file path to file for upload
 ##' @param page wiki page to which to push the file(s).
@@ -170,11 +173,16 @@ pushWiki <- function(file,
         tVals <- gsub(tStr,"\\2",tLines)  ## extract FILENAME TARGET
         tVals <- tVals[nzchar(tVals)] ## discard empties
         tVals <- c(file,tVals)
+        mktext <- character(0)
+        if (autoRsave && drules[fileExt,"rsave"]) {
+            mktext <-paste0(filename,".RData",": ",
+                            display)
+        }
         if (length(tVals)>1) {
             ## construct Makefile
             ## dependency line
-            mktext <- paste(paste0(display,":"),
-                            paste(tVals,collapse=" "))
+            mktext <- c(mktext,paste(paste0(display,":"),
+                                     paste(tVals,collapse=" ")))
             ## rule line
             ## FIXME: re-enable this once debugged
             ## makeRule <- switch(displayExt,
@@ -182,6 +190,8 @@ pushWiki <- function(file,
             ##                   rmd="$(knit_html)",
             ##                   rnw="$(knit_pdf)")
             ## mktext <- c(mktext,paste0("	",makeRule))
+        }
+        if (length(mktext)>0) {
             makeFn <- paste(display,"mk",sep=".")
             writeLines(mktext,con=makeFn)
             tVals <- c(tVals,makeFn)
